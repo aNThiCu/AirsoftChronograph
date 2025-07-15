@@ -1,0 +1,136 @@
+/* General Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
+    margin: 0;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+h1 {
+    font-size: 1.5rem;
+    margin: 0;
+}
+
+/* Status Indicator */
+.status {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+#status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin: 0 8px;
+    transition: background-color 0.3s;
+}
+
+#status-indicator.disconnected {
+    background-color: #e74c3c; /* Red */
+}
+
+#status-indicator.connected {
+    background-color: #2ecc71; /* Green */
+}
+
+/* Main Content */
+main {
+    display: grid;
+    gap: 20px;
+}
+
+.card {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+h2 {
+    font-size: 1.2rem;
+    margin-top: 0;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+/* Data Grid */
+.data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
+}
+
+.data-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #4e9af1;
+    margin: 0;
+    text-align: center;
+}
+
+/* Configuration Form */
+.config-form {
+    display: grid;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+}
+
+input[type="number"] {
+    background-color: #333;
+    color: #e0e0e0;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 1rem;
+}
+
+button {
+    background-color: #4e9af1;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 12px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #3b88e3;
+}
+
+/* Speed Chart */
+#speed-chart {
+    width: 100%;
+    height: 250px;
+}
+
+#speed-chart rect {
+    fill: #4e9af1;
+    shape-rendering: crispEdges;
+}
+
+#speed-chart text {
+    fill: #e0e0e0;
+    font-size: 12px;
+    text-anchor: middle;
+}

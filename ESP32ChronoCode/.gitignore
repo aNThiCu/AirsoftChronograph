@@ -1,0 +1,8 @@
+.pio/*
+.vscode/*
+test/*
+lib/*
+include/*
+ESPChipPCB-backups/*
+ESPChipPCB.kicad_prl
+fp-info-cache
