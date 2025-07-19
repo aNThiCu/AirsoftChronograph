@@ -7,10 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveButton = document.getElementById('save-button');
     const bbWeightInput = document.getElementById('bb-weight');
     const sensorDistanceInput = document.getElementById('sensor-distance');
+    const shotHistoryList = document.getElementById('shot-history-list');
 
     const chartSvg = document.getElementById('speed-chart');
     const maxChartElements = 10;
     let chartData = [];
+    let shotCounter = 0;
 
     function initWebSocket() {
         console.log('Trying to open a WebSocket connection...');
@@ -24,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Connection opened');
         statusIndicator.className = 'connected';
         statusText.textContent = 'Connected';
+        shotCounter = 0; // Reset counter on new connection
+        shotHistoryList.innerHTML = ''; // Clear history on new connection
     }
 
     function onClose(event) {
@@ -36,22 +40,49 @@ document.addEventListener('DOMContentLoaded', () => {
     function onMessage(event) {
         try {
             const data = JSON.parse(event.data);
-            if (data.metric !== undefined) {
+
+            // Individual shot data
+            if (data.hasOwnProperty('metric')) {
+                shotCounter++;
                 document.getElementById('metric').textContent = data.metric.toFixed(1);
-                document.getElementById('joules').textContent = data.joules.toFixed(2);
-                document.getElementById('rps').textContent = data.rps.toFixed(1);
+                document.getElementById('joules').textContent = data.joules.toFixed(1);
                 updateChart(data.metric);
+                addShotToHistory(shotCounter, data.metric, data.joules);
             }
-            // Listen for initial settings from ESP32
-            if (data.bbWeight !== undefined) {
+
+            // Burst summary data
+            if (data.hasOwnProperty('rps')) {
+                document.getElementById('rps').textContent = data.rps.toFixed(1);
+            }
+            if (data.hasOwnProperty('avg_metric')) {
+                // Optionally display average speed somewhere
+                console.log(`Burst Average Speed: ${data.avg_metric.toFixed(1)}`);
+            }
+
+            // Initial settings from ESP32
+            if (data.hasOwnProperty('bbWeight')) {
                 bbWeightInput.value = data.bbWeight;
             }
-            if (data.distanceAcross !== undefined) {
+            if (data.hasOwnProperty('distanceAcross')) {
                 sensorDistanceInput.value = data.distanceAcross;
             }
+
+            // Debug messages
+            if (data.hasOwnProperty('debug')) {
+                console.log(`ESP32 Debug: ${data.debug}`);
+            }
+
         } catch (e) {
             console.error('Error parsing message:', e);
         }
+    }
+
+    function addShotToHistory(count, speed, joules) {
+        const listItem = document.createElement('li');
+        listItem.textContent = `#${count}: ${speed.toFixed(1)} m/s, ${joules} J`;
+        shotHistoryList.appendChild(listItem);
+        // Auto-scroll to the bottom
+        shotHistoryList.parentElement.scrollTop = shotHistoryList.parentElement.scrollHeight;
     }
 
     function sendConfig() {
