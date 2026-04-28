@@ -41,35 +41,44 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = JSON.parse(event.data);
 
-            // Individual shot data
+            // --- Single Shot Packet ---
             if (data.hasOwnProperty('metric')) {
                 shotCounter++;
-                document.getElementById('metric').textContent = data.metric.toFixed(1);
-                document.getElementById('joules').textContent = data.joules.toFixed(1);
-                updateChart(data.metric);
-                addShotToHistory(shotCounter, data.metric, data.joules);
+                const speed = data.metric;
+                const joules = data.joules;
+
+                document.getElementById('metric').textContent = speed.toFixed(1);
+                document.getElementById('joules').textContent = joules.toFixed(2);
+                document.getElementById('rps').textContent = '0.0'; // Clear RPS on single shot
+
+                updateChart([speed]);
+                addShotToHistory(shotCounter, speed, joules);
             }
 
-            // Burst summary data
+            // --- Burst RPS Packet ---
             if (data.hasOwnProperty('rps')) {
-                document.getElementById('rps').textContent = data.rps.toFixed(1);
-            }
-            if (data.hasOwnProperty('avg_metric')) {
-                // Optionally display average speed somewhere
-                console.log(`Burst Average Speed: ${data.avg_metric.toFixed(1)}`);
+                shotCounter++;
+                const rps = data.rps;
+
+                document.getElementById('rps').textContent = rps.toFixed(1);
+                // Clear the single-shot values on a burst
+                document.getElementById('metric').textContent = '0.0';
+                document.getElementById('joules').textContent = '0.00';
+
+                // Log the burst event
+                const logEntry = document.createElement('li');
+                logEntry.className = 'summary';
+                logEntry.textContent = `#${shotCounter}: Burst Detected - ${rps.toFixed(1)} RPS`;
+                shotHistoryList.appendChild(logEntry);
+                shotHistoryList.parentElement.scrollTop = shotHistoryList.parentElement.scrollHeight;
             }
 
-            // Initial settings from ESP32
+            // --- Initial Settings ---
             if (data.hasOwnProperty('bbWeight')) {
                 bbWeightInput.value = data.bbWeight;
             }
             if (data.hasOwnProperty('distanceAcross')) {
                 sensorDistanceInput.value = data.distanceAcross;
-            }
-
-            // Debug messages
-            if (data.hasOwnProperty('debug')) {
-                console.log(`ESP32 Debug: ${data.debug}`);
             }
 
         } catch (e) {
