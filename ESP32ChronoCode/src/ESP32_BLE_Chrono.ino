@@ -4,7 +4,7 @@
 #include <BLE2902.h>
 
 #include <WiFi.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
 #include <ElegantOTA.h>
 
 #include <esp_pm.h>
@@ -14,7 +14,7 @@
 
 #define FIRSTSENSOR 10
 #define SECONDSENSOR 7
-#define DEBUGPIN 9
+#define DEBUGPIN 6
 
 #define TIMESTAMP_QUEUE_SIZE 16 // Can handle up to 16 BBs in flight between sensors
 #define RPS_TIMEOUT_US 1000000 // ms to wait after the last shot to finalize RPS calculation
@@ -22,7 +22,7 @@
 #define SSID "Chronograph"
 #define PASSWORD "Chrono123"
 
-AsyncWebServer ota_server(80);
+WebServer ota_server(80);
 bool ota_mode = false;
 
 struct circular_buffer{
@@ -49,7 +49,20 @@ bool device_connected = false;
 class ServerCallbacks: public BLEServerCallbacks{
     void onConnect(BLEServer* p_server) override{
         device_connected = true;
+        BLEDevice::stopAdvertising();
+        uint8_t packet[4];
+        uint16_t speed_dms = 4200;
+        uint16_t rps_tenths = 4200;
+
+        packet[0] = (uint8_t)(speed_dms >> 8);
+        packet[1] = (uint8_t)(speed_dms & 0xFF);
+        packet[2] = (uint8_t)(rps_tenths >> 8);
+        packet[3] = (uint8_t)(rps_tenths & 0xFF);
+
+        p_shot_char->setValue(packet, 4);
+        p_shot_char->notify();
     }
+
     void onDisconnect(BLEServer* p_server) override{
         device_connected = false;
         BLEDevice::startAdvertising();
@@ -109,19 +122,20 @@ void initBLE(){
 
     BLEAdvertising *p_advertising = BLEDevice::getAdvertising();
     p_advertising->addServiceUUID(SERVICE_UUID);
+    p_advertising->setMinPreferred(0x0C);
+    p_advertising->setMaxPreferred(0x18);
     p_advertising->start();
 }
 
 void initOTA(){
     ota_mode = true;
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(SSID,PASSWORD);
-    while(WiFi.status() != WL_CONNECTED){
-        delay(500);
-    }
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(SSID,PASSWORD);
 
-    ota_server.on("/" , HTTP_GET , [](AsyncWebServerRequest *request){
-        request->send(200 , "text/plain" , "OTA mode Active");
+    delay(100);
+
+    ota_server.on("/" , HTTP_GET , [](){
+        ota_server.send(200 , "text/plain" , "OTA mode Active");
     });
 
     ElegantOTA.begin(&ota_server);
@@ -159,8 +173,8 @@ void sendProcessedData(){
 
     if(projectile_delta_time == 0) return;
 
-    float projectile_speed = (60000 * 1.0) / projectile_delta_time ; 
-    delta_timestamps.tail = (delta_timestamps.tail + 1) % TIMESTAMP_QUEUE_SIZE;
+    float projectile_speed = 60000.0f / (float)projectile_delta_time ; 
+    delta_timestamps.tail = (delta_timestamps.tail + 1) & (TIMESTAMP_QUEUE_SIZE - 1);
 
     if(device_connected && p_shot_char != nullptr)  {
         uint8_t packet[4];
@@ -191,11 +205,14 @@ void processRPS(){
 
 void loop(){
     if(ota_mode){
+        ota_server.handleClient();
         ElegantOTA.loop();
         return;
     }
 
-    if(micros()-rps_end > RPS_TIMEOUT_US && rps_end != 0){
+    unsigned long rps_end_cache = rps_end;
+
+    if((micros()-rps_end_cache > RPS_TIMEOUT_US) && rps_end_cache != 0){
         processRPS();
     }
 

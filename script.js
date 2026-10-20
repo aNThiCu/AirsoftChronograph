@@ -1,16 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     const SERVICE_UUID = "4fa8f700-4323-40f9-a961-68f1488d8a1e";
     const CHAR_SHOT_UUID = "4fa8f701-4323-40f9-a961-68f1488d8a1e";
-    const CHAR_CONFIG_UUID = "4fa8f702-4323-40f9-a961-68f1488d8a1e";
 
     let bleDevice, shotCharacteristic, configCharacteristic;
 
     const connectBtn = document.getElementById('connect-btn');
     const statusIndicator = document.getElementById('status-indicator');
     const statusText = document.getElementById('status-text');
-    const saveButton = document.getElementById('save-button');
     const bbWeightInput = document.getElementById('bb-weight');
-    const sensorDistanceInput = document.getElementById('sensor-distance');
     const shotHistoryList = document.getElementById('shot-history-list');
 
     const chartSvg = document.getElementById('speed-chart');
@@ -32,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const service = await server.getPrimaryService(SERVICE_UUID);
 
             shotCharacteristic = await service.getCharacteristic(CHAR_SHOT_UUID);
-            configCharacteristic = await service.getCharacteristic(CHAR_CONFIG_UUID);
 
             await shotCharacteristic.startNotifications();
             shotCharacteristic.addEventListener('characteristicvaluechanged', handleShotNotification);
@@ -40,10 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
             statusIndicator.className = 'connected';
             statusText.textContent = 'Connected';
             connectBtn.style.display = 'none';
+            bleStatusToHistory(true);
             shotCounter = 0;
             shotHistoryList.innerHTML = '';
         } catch (error) {
             console.error('BLE Error:', error);
+            bleStatusToHistory(false);
             statusIndicator.className = 'disconnected';
             statusText.textContent = 'Disconnected';
         }
@@ -62,30 +60,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (value.byteLength === 4) {
             shotCounter++;
             const speed = (value.getUint8(0) << 8 | value.getUint8(1)) / 10.0;
-            const joules = (value.getUint8(2) << 8 | value.getUint8(3)) / 100.0;
+            const rps = (value.getUint8(2) << 8 | value.getUint8(3)) / 10.0;
+            const joules = 0.5 * speed * speed * bbWeightInput.value / 1000;
 
             document.getElementById('metric').textContent = speed.toFixed(1);
-            document.getElementById('joules').textContent = joules.toFixed(2);
-            document.getElementById('rps').textContent = '0.0';
+            document.getElementById('joules').textContent = joules.toFixed(1);
+            document.getElementById('rps').textContent = rps.toFixed(1);
 
             updateChart(speed);
             addShotToHistory(shotCounter, speed, joules);
         }
     }
 
-    async function sendConfig() {
-        if (!configCharacteristic) return;
-
-        const weightMg = Math.round(parseFloat(bbWeightInput.value) * 1000);
-        const distanceMm = parseInt(sensorDistanceInput.value, 10);
-
-        const buffer = new ArrayBuffer(3);
-        const dataView = new DataView(buffer);
-        dataView.setUint16(0, weightMg, false); // Big-Endian
-        dataView.setUint8(2, distanceMm);
-
-        await configCharacteristic.writeValue(buffer);
-        console.log('BLE Config Sent');
+    function bleStatusToHistory(sucess){
+        const listItem = document.createElement('li');
+        listItem.textContent = `BLE Connected: ${sucess}`;
+        shotHistoryList.appendChild(listItem);
+        shotHistoryList.parentElement.scrollTop = shotHistoryList.parentElement.scrollHeight;
     }
 
     function addShotToHistory(count, speed, joules) {
@@ -131,6 +122,4 @@ document.addEventListener('DOMContentLoaded', () => {
             chartSvg.appendChild(text);
         });
     }
-
-    saveButton.addEventListener('click', sendConfig);
 });
