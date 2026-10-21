@@ -50,22 +50,11 @@ class ServerCallbacks: public BLEServerCallbacks{
     void onConnect(BLEServer* p_server) override{
         device_connected = true;
         BLEDevice::stopAdvertising();
-        uint8_t packet[4];
-        uint16_t speed_dms = 4200;
-        uint16_t rps_tenths = 4200;
-
-        packet[0] = (uint8_t)(speed_dms >> 8);
-        packet[1] = (uint8_t)(speed_dms & 0xFF);
-        packet[2] = (uint8_t)(rps_tenths >> 8);
-        packet[3] = (uint8_t)(rps_tenths & 0xFF);
-
-        p_shot_char->setValue(packet, 4);
-        p_shot_char->notify();
     }
 
     void onDisconnect(BLEServer* p_server) override{
         device_connected = false;
-        BLEDevice::startAdvertising();
+        p_server->startAdvertising();
     }
 };
 
@@ -75,7 +64,6 @@ void configAutoLightSleep(){
         .min_freq_mhz = 10,
         .light_sleep_enable = true
     };
-    esp_pm_configure(&pwr_config);
 }
 
 void IRAM_ATTR firstSensorTrigger() {
@@ -109,22 +97,28 @@ void IRAM_ATTR secondSensorTrigger() {
 
 void initBLE(){
     BLEDevice::init("ESP32-Chronograph");
+
+    BLEDevice::setMTU(512);
+
     BLEServer *p_server = BLEDevice::createServer();
     p_server->setCallbacks(new ServerCallbacks());
 
     BLEService *p_service = p_server->createService(SERVICE_UUID);
     p_shot_char = p_service->createCharacteristic(
         CHAR_SHOT_UUID,
-        BLECharacteristic::PROPERTY_NOTIFY
+        BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_READ
     );
     p_shot_char->addDescriptor(new BLE2902);
     p_service->start();
 
     BLEAdvertising *p_advertising = BLEDevice::getAdvertising();
     p_advertising->addServiceUUID(SERVICE_UUID);
-    p_advertising->setMinPreferred(0x0C);
-    p_advertising->setMaxPreferred(0x18);
-    p_advertising->start();
+
+    p_advertising->setScanResponse(true);
+    p_advertising->setMinPreferred(0x0100);
+    p_advertising->setMaxPreferred(0x0200);
+
+    p_server->getAdvertising()->start();
 }
 
 void initOTA(){
@@ -216,9 +210,9 @@ void loop(){
         processRPS();
     }
 
-    if(delta_timestamps.head!=delta_timestamps.tail){
+    if(delta_timestamps.head!=delta_timestamps.tail && device_connected){
         sendProcessedData();
     }
 
-    delay(10);
+    delay(50);
 }
